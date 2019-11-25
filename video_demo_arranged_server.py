@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import socket
 import numpy as np
 import cv2
@@ -43,10 +44,10 @@ GST_STR = 'nvarguscamerasrc \
 
 #s.bind((serverIP, portNo))    # サーバー側PCのipと使用するポート
 
-print("接続待機中")
+print("waiting for connection ...")
 
 #soc.connect((serverIP, portNo))                   # 接続要求を待機
-print("接続完了")
+print("completed connection")
 
 
 #cam = cv2.VideoCapture(GST_STR, cv2.CAP_GSTREAMER)
