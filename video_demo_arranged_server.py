@@ -115,8 +115,8 @@ def arg_parse():
 
 if __name__ == '__main__':
 #while (True):
-    cfgfile = "cfg/yolov3.cfg"
-    weightsfile = "yolov3.weights"
+    cfgfile = "cfg/yolov3-tiny.cfg"
+    weightsfile = "yolov3-tiny.weights"
     num_classes = 80
 
     args = arg_parse()
