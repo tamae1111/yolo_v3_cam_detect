@@ -1,0 +1,112 @@
+FROM ubuntu:18.04
+
+ARG MIRROR=ports.ubuntu.com
+
+# for Tensorflow
+RUN set -x \
+ && sed -i.org -e "s|ports.ubuntu.com|$MIRROR|g" /etc/apt/sources.list \
+ && apt update && apt install -y \
+    pkg-config \
+    bash python3-pip libhdf5-serial-dev hdf5-tools zlib1g-dev zip libjpeg8-dev libhdf5-dev sudo git wget cmake \
+ && pip3 install -U numpy grpcio absl-py py-cpuinfo psutil portpicker six mock requests gast h5py astor termcolor
+
+# split image due to too long compilation time
+RUN pip3 install -U keras-preprocessing keras-applications protobuf tensorboard tensorflow-estimator \
+ && pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v42/tensorflow-gpu/tensorflow_gpu-1.13.1+nv19.5-cp36-cp36m-linux_aarch64.wh \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install pyyaml
+
+# -----------------以下は一時期うまく言ってたpytorchの記述(遅すぎるので記載削除)
+
+# RUN git clone --recursive --depth 1 http://github.com/pytorch/pytorch
+# RUN cd pytorch && python3 setup.py build develop
+
+# -----------------以上は一時期うまく言ってたpytorchの記述
+
+
+# -----------------以下試し中のpytorchの記述(早くするため)
+RUN wget https://nvidia.box.com/shared/static/veo87trfaawj5pfwuqvhl6mzc5b55fbj.whl -O torch-1.1.0a0+b457266-cp36-cp36m-linux_aarch64.whl
+RUN pip3 install numpy torch-1.1.0a0+b457266-cp36-cp36m-linux_aarch64.whl
+RUN apt install libjpeg-dev pkg-config
+RUN apt-get update -y
+RUN apt-get install -y libfreetype6-dev libpng-dev
+# RUN apt install libfreetype6 libpng-tools
+# RUN apt install libfreetype6-dev libpng-dev
+RUN pip3 install matplotlib pillow==5.4.1
+# -----------------以上試し中のpytorchの記述(早くするため)
+
+# set environment variable
+ENV LD_LIBRARY_PATH /usr/local/cuda-10.0/targets/aarch64-linux/lib:/usr/lib/aarch64-linux-gnu/tegra
+ENV CUDA_PATH /usr/local/cuda-10.0
+
+# -----------------以下はopencvのインストール記述
+WORKDIR /home/$USER
+
+ENV FOLDER opencv
+RUN echo "** Install requirement"
+RUN apt-get update
+RUN apt-get install -y build-essential cmake git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
+RUN apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+RUN apt-get install -y python2.7-dev python3.6-dev python-dev python-numpy python3-numpy
+# RUN apt-get install -y libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev
+
+# インストールできなかったので一旦消している。
+# RUN apt install libjasper-dev
+RUN apt-get install -y libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-22-dev
+
+
+RUN apt-get install -y libv4l-dev v4l-utils qv4l2 v4l2ucp
+RUN apt-get install -y curl
+RUN apt-get update
+
+RUN echo "** Download opencv-4.1.0"
+WORKDIR /home/$USER/$FOLDER
+
+RUN curl -L https://github.com/opencv/opencv/archive/4.1.0.zip -o opencv-4.1.0.zip
+RUN curl -L https://github.com/opencv/opencv_contrib/archive/4.1.0.zip -o opencv_contrib-4.1.0.zip
+RUN unzip opencv-4.1.0.zip
+RUN unzip opencv_contrib-4.1.0.zip
+WORKDIR /home/$USER/$FOLDER/opencv-4.1.0
+
+RUN echo "** Building..."
+RUN mkdir release
+WORKDIR /home/$USER/$FOLDER/opencv-4.1.0/release
+RUN cmake -D WITH_CUDA=ON -D CUDA_ARCH_BIN="5.3" -D CUDA_ARCH_PTX="" -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.1.0/modules -D WITH_GSTREAMER=ON -D WITH_LIBV4L=ON -D BUILD_opencv_python2=ON -D BUILD_opencv_python3=ON -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_EXAMPLES=OFF -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ..
+
+RUN make -j3
+RUN make install
+RUN apt-get install -y python-opencv python3-opencv
+
+RUN echo "** Install opencv-4.1.0 successfully"
+RUN echo "** Bye :)"
+
+# WORKDIR /usr/local/lib/python3.6/site-packages/
+# sudo mv cv2.cpython-36m-x86_64-linux-gnu.so cv2.so
+# -----------------以上までがopencvのインストール記述
+
+# create a user
+ARG USER=foo
+ARG UID=1000
+ARG GID=1000
+
+RUN groupadd -g $GID $USER \
+ && useradd -u $UID -g $GID -G video $USER \
+ && mkdir -m 777 -p /home/$USER \
+ && chown -R foo:foo /home/$USER
+
+ENV HOME /home/$USER
+
+
+RUN cd /home/$USER && git clone https://github.com/ayooshkathuria/pytorch-yolo-v3.git && chown -R foo:foo /home/$USER/pytorch-yolo-v3 && chmod -R 777 /home/$USER/pytorch-yolo-v3
+
+RUN cd /home/$USER/pytorch-yolo-v3 && wget https://pjreddie.com/media/files/yolov3.weights \
+ && wget https://pjreddie.com/media/files/yolov3-tiny.weights && chown -R foo:foo /home/$USER/pytorch-yolo-v3 && chmod -R 777 /home/$USER/pytorch-yolo-v3
+
+USER $USER
+
+
+
+
+
+CMD ["/bin/bash"]
