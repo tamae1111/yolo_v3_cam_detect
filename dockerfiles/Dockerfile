@@ -101,7 +101,7 @@ RUN cd /home/$USER && git clone https://github.com/tamae1111/yolo_v3_cam_detect.
 
 #https://github.com/tamae1111/yolo_v3_cam_detect.git
 
-RUN sudo apt install -y libcanberrra-gtk* v4l-utils
+RUN sudo apt install -y libcanberra-gtk-module v4l-utils
 
 USER $USER
 
